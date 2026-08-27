@@ -61,25 +61,27 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
     let mut vbo: u32 = 0;
     gl::GenBuffers(1, &mut vbo);
     gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-    // glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
     gl::BufferData(
         gl::ARRAY_BUFFER,
-        ((size_of::<f32>() as usize) * vertices.len()) as isize,
-        vertices.as_ptr() as *const c_void,
+        byte_size_of_array(vertices),
+        pointer_to_array(vertices),
         gl::STATIC_DRAW,
     );
+
+    gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, size_of::<f32>() * 3, ptr::null());
+    gl::EnableVertexAttribArray(0);
 
     let mut ibo: u32 = 0;
     gl::GenBuffers(1, &mut ibo);
     gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
     gl::BufferData(
-        gl::ARRAY_BUFFER,
-        ((size_of::<i32>() as usize) * indices.len()) as isize,
-        indices.as_ptr() as *const c_void,
+        gl::ELEMENT_ARRAY_BUFFER,
+        byte_size_of_array(indices),
+        pointer_to_array(indices),
         gl::STATIC_DRAW,
     );
 
-    gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, 12, 0);
+    
     return vao;
     // This should:
     //
@@ -154,18 +156,38 @@ fn main() {
 
         // == // Set up your VAO around here
 
-        const VERTICES: [f32; 9] = [
+const VERTICES: [f32; 45] = [
+    // triangle 1 (center)
     -0.5, -0.5, 0.0,
      0.5, -0.5, 0.0,
      0.0,  0.5, 0.0,
+    // triangle 2 (top-left)
+    -0.9,  0.4, 0.0,
+    -0.6,  0.4, 0.0,
+    -0.75, 0.8, 0.0,
+    // triangle 3 (top-right)
+     0.6,  0.4, 0.0,
+     0.9,  0.4, 0.0,
+     0.75, 0.8, 0.0,
+    // triangle 4 (bottom-left)
+    -0.9, -0.9, 0.0,
+    -0.6, -0.9, 0.0,
+    -0.75,-0.6, 0.0,
+    // triangle 5 (bottom-right)
+     0.6, -0.9, 0.0,
+     0.9, -0.9, 0.0,
+     0.75,-0.6, 0.0,
 ];
 
-const INDICES: [u32; 3] = [0, 1, 2];
-unsafe {
-        let my_vao = create_vao(&VERTICES.to_vec(), &INDICES.to_vec());
+const INDICES: [u32; 15] = [
+    0, 1, 2,
+    3, 4, 5,
+    6, 7, 8,
+    9, 10, 11,
+    12, 13, 14,
+];
 
-}
-
+        let my_vao = unsafe { create_vao(&VERTICES.to_vec(), &INDICES.to_vec()) };
 
 
         // == // Set up your shaders here
@@ -183,6 +205,7 @@ unsafe {
                 .attach_file("./shaders/simple.frag")
                 .link()
         };
+        unsafe { simple_shader.activate(); }
 
 
         // Used to demonstrate keyboard handling for exercise 2.
@@ -249,7 +272,12 @@ unsafe {
 
 
                 // == // Issue the necessary gl:: commands to draw your scene here
-
+                gl::BindVertexArray(my_vao);
+                gl::DrawElements(
+                    gl::TRIANGLES, 
+                    INDICES.len() as i32, 
+                    gl::UNSIGNED_INT, 
+                    ptr::null());
 
 
             }
