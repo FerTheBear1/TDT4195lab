@@ -8,14 +8,20 @@
 #![allow(unused_variables)]
 */
 extern crate nalgebra_glm as glm;
-use std::{ mem, ptr, os::raw::c_void };
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
-use std::sync::{Mutex, Arc, RwLock};
+use std::{mem, os::raw::c_void, ptr};
 
 mod shader;
 mod util;
 
-use glutin::event::{Event, WindowEvent, DeviceEvent, KeyboardInput, ElementState::{Pressed, Released}, VirtualKeyCode::{self, *}};
+use glutin::event::{
+    DeviceEvent,
+    ElementState::{Pressed, Released},
+    Event, KeyboardInput,
+    VirtualKeyCode::{self, *},
+    WindowEvent,
+};
 use glutin::event_loop::ControlFlow;
 
 // initial window size
@@ -51,7 +57,6 @@ fn offset<T>(n: u32) -> *const c_void {
 // Get a null pointer (equivalent to an offset of 0)
 // ptr::null()
 
-
 // == // Generate your VAO here
 unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
     let mut vao: u32 = 0;
@@ -68,7 +73,14 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
         gl::STATIC_DRAW,
     );
 
-    gl::VertexAttribPointer(0, 3, gl::FLOAT, gl::FALSE, size_of::<f32>() * 3, ptr::null());
+    gl::VertexAttribPointer(
+        0,
+        3,
+        gl::FLOAT,
+        gl::FALSE,
+        size_of::<f32>() * 3,
+        ptr::null(),
+    );
     gl::EnableVertexAttribArray(0);
 
     let mut ibo: u32 = 0;
@@ -81,19 +93,8 @@ unsafe fn create_vao(vertices: &Vec<f32>, indices: &Vec<u32>) -> u32 {
         gl::STATIC_DRAW,
     );
 
-    
     return vao;
-    // This should:
-    //
-    // * Generate a VAO and bind it
-    // * Generate a VBO and bind it
-    // * Fill it with data
-    // * Configure a VAP for the data and enable it
-    // * Generate a IBO and bind it
-    // * Fill it with data
-    // * Return the ID of the VAO
 }
-
 
 fn main() {
     // Set up the necessary objects to deal with windows and event handling
@@ -101,9 +102,11 @@ fn main() {
     let wb = glutin::window::WindowBuilder::new()
         .with_title("Gloom-rs")
         .with_resizable(true)
-        .with_inner_size(glutin::dpi::LogicalSize::new(INITIAL_SCREEN_W, INITIAL_SCREEN_H));
-    let cb = glutin::ContextBuilder::new()
-        .with_vsync(true);
+        .with_inner_size(glutin::dpi::LogicalSize::new(
+            INITIAL_SCREEN_W,
+            INITIAL_SCREEN_H,
+        ));
+    let cb = glutin::ContextBuilder::new().with_vsync(true);
     let windowed_context = cb.build_windowed(wb, &el).unwrap();
     // Uncomment these if you want to use the mouse for controls, but want it to be confined to the screen and/or invisible.
     // windowed_context.window().set_cursor_grab(true).expect("failed to grab cursor");
@@ -149,46 +152,58 @@ fn main() {
             gl::DebugMessageCallback(Some(util::debug_callback), ptr::null());
 
             // Print some diagnostics
-            println!("{}: {}", util::get_gl_string(gl::VENDOR), util::get_gl_string(gl::RENDERER));
+            println!(
+                "{}: {}",
+                util::get_gl_string(gl::VENDOR),
+                util::get_gl_string(gl::RENDERER)
+            );
             println!("OpenGL\t: {}", util::get_gl_string(gl::VERSION));
-            println!("GLSL\t: {}", util::get_gl_string(gl::SHADING_LANGUAGE_VERSION));
+            println!(
+                "GLSL\t: {}",
+                util::get_gl_string(gl::SHADING_LANGUAGE_VERSION)
+            );
         }
 
         // == // Set up your VAO around here
 
-const VERTICES: [f32; 45] = [
-    // triangle 1 (center)
-    -0.5, -0.5, 0.0,
-     0.5, -0.5, 0.0,
-     0.0,  0.5, 0.0,
-    // triangle 2 (top-left)
-    -0.9,  0.4, 0.0,
-    -0.6,  0.4, 0.0,
-    -0.75, 0.8, 0.0,
-    // triangle 3 (top-right)
-     0.6,  0.4, 0.0,
-     0.9,  0.4, 0.0,
-     0.75, 0.8, 0.0,
-    // triangle 4 (bottom-left)
-    -0.9, -0.9, 0.0,
-    -0.6, -0.9, 0.0,
-    -0.75,-0.6, 0.0,
-    // triangle 5 (bottom-right)
-     0.6, -0.9, 0.0,
-     0.9, -0.9, 0.0,
-     0.75,-0.6, 0.0,
-];
+        // CIRCLE
+        // const VERTICES :&[f32] = &[
+        //     -0.5,  0.5, 0.0,
+        //      0.5,  0.5, 0.0,
+        //     -0.5, -0.5, 0.0,
+        //      0.5, -0.5, 0.5,
+        // ];
 
-const INDICES: [u32; 15] = [
-    0, 1, 2,
-    3, 4, 5,
-    6, 7, 8,
-    9, 10, 11,
-    12, 13, 14,
-];
+        // const INDICES : &[u32] = &[ 0, 2, 1, 1, 2, 3];
+        const VERTICES: &[f32] = &[
+            // triangle 1 (center)
+            -0.5, -0.5, 0.0,
+             0.5, -0.5, 0.0,
+             0.0,  0.5, 0.0,
+
+            // triangle 2 (top-left)
+            -0.9,  0.4, 0.0,
+            -0.6,  0.4, 0.0,
+            -0.75, 0.8, 0.0,
+
+            // triangle 3 (top-right)
+            0.6,  0.4, 0.0,
+            0.9,  0.4, 0.0,
+            0.75, 0.8, 0.0,
+
+            // triangle 4 (bottom-left)
+            -0.9,  -0.9, 0.0,
+            -0.6,  -0.9, 0.0,
+            -0.75, -0.6, 0.0,
+
+            // triangle 5 (bottom-right)
+            0.6,  -0.9, 0.0,
+            0.9,  -0.9, 0.0,
+            0.75, -0.6, 0.0,
+        ];
+        const INDICES: &[u32] = &[0, 1, 2, 3, 5, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14];
 
         let my_vao = unsafe { create_vao(&VERTICES.to_vec(), &INDICES.to_vec()) };
-
 
         // == // Set up your shaders here
 
@@ -199,18 +214,20 @@ const INDICES: [u32; 15] = [
         // This snippet is not enough to do the exercise, and will need to be modified (outside
         // of just using the correct path), but it only needs to be called once
 
+        let (width, height, _) = *window_size.lock().unwrap();
         let simple_shader = unsafe {
             shader::ShaderBuilder::new()
                 .attach_file("./shaders/simple.vert")
                 .attach_file("./shaders/simple.frag")
                 .link()
         };
-        unsafe { simple_shader.activate(); }
-
+        unsafe {
+            simple_shader.activate();
+            gl::Uniform2f(simple_shader.get_uniform_location("u_resolution"), width as f32, height as f32);
+        }
 
         // Used to demonstrate keyboard handling for exercise 2.
         let mut _arbitrary_number = 0.0; // feel free to remove
-
 
         // The main rendering loop
         let first_frame_time = std::time::Instant::now();
@@ -229,7 +246,9 @@ const INDICES: [u32; 15] = [
                     window_aspect_ratio = new_size.0 as f32 / new_size.1 as f32;
                     (*new_size).2 = false;
                     println!("Window was resized to {}x{}", new_size.0, new_size.1);
-                    unsafe { gl::Viewport(0, 0, new_size.0 as i32, new_size.1 as i32); }
+                    unsafe {
+                        gl::Viewport(0, 0, new_size.0 as i32, new_size.1 as i32);
+                    }
                 }
             }
 
@@ -239,7 +258,6 @@ const INDICES: [u32; 15] = [
                     match key {
                         // The `VirtualKeyCode` enum is defined here:
                         //    https://docs.rs/winit/0.25.0/winit/event/enum.VirtualKeyCode.html
-
                         VirtualKeyCode::A => {
                             _arbitrary_number += delta_time;
                         }
@@ -247,15 +265,13 @@ const INDICES: [u32; 15] = [
                             _arbitrary_number -= delta_time;
                         }
 
-
                         // default handler:
-                        _ => { }
+                        _ => {}
                     }
                 }
             }
             // Handle mouse movement. delta contains the x and y movement of the mouse since last frame in pixels
             if let Ok(mut delta) = mouse_delta.lock() {
-
                 // == // Optionally access the accumulated mouse movement between
                 // == // frames here with `delta.0` and `delta.1`
 
@@ -264,22 +280,19 @@ const INDICES: [u32; 15] = [
 
             // == // Please compute camera transforms here (exercise 2 & 3)
 
-
             unsafe {
                 // Clear the color and depth buffers
                 gl::ClearColor(0.035, 0.046, 0.078, 1.0); // night sky
                 gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
 
-
                 // == // Issue the necessary gl:: commands to draw your scene here
                 gl::BindVertexArray(my_vao);
                 gl::DrawElements(
-                    gl::TRIANGLES, 
-                    INDICES.len() as i32, 
-                    gl::UNSIGNED_INT, 
-                    ptr::null());
-
-
+                    gl::TRIANGLES,
+                    INDICES.len() as i32,
+                    gl::UNSIGNED_INT,
+                    ptr::null(),
+                );
             }
 
             // Display the new color buffer on the display
@@ -287,11 +300,9 @@ const INDICES: [u32; 15] = [
         }
     });
 
-
     // == //
     // == // From here on down there are only internals.
     // == //
-
 
     // Keep track of the health of the rendering thread
     let render_thread_healthy = Arc::new(RwLock::new(true));
@@ -317,19 +328,38 @@ const INDICES: [u32; 15] = [
         }
 
         match event {
-            Event::WindowEvent { event: WindowEvent::Resized(physical_size), .. } => {
-                println!("New window size received: {}x{}", physical_size.width, physical_size.height);
+            Event::WindowEvent {
+                event: WindowEvent::Resized(physical_size),
+                ..
+            } => {
+                println!(
+                    "New window size received: {}x{}",
+                    physical_size.width, physical_size.height
+                );
                 if let Ok(mut new_size) = arc_window_size.lock() {
                     *new_size = (physical_size.width, physical_size.height, true);
                 }
             }
-            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
                 *control_flow = ControlFlow::Exit;
             }
             // Keep track of currently pressed keys to send to the rendering thread
-            Event::WindowEvent { event: WindowEvent::KeyboardInput {
-                    input: KeyboardInput { state: key_state, virtual_keycode: Some(keycode), .. }, .. }, .. } => {
-
+            Event::WindowEvent {
+                event:
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: key_state,
+                                virtual_keycode: Some(keycode),
+                                ..
+                            },
+                        ..
+                    },
+                ..
+            } => {
                 if let Ok(mut keys) = arc_pressed_keys.lock() {
                     match key_state {
                         Released => {
@@ -337,7 +367,7 @@ const INDICES: [u32; 15] = [
                                 let i = keys.iter().position(|&k| k == keycode).unwrap();
                                 keys.remove(i);
                             }
-                        },
+                        }
                         Pressed => {
                             if !keys.contains(&keycode) {
                                 keys.push(keycode);
@@ -348,18 +378,25 @@ const INDICES: [u32; 15] = [
 
                 // Handle Escape and Q keys separately
                 match keycode {
-                    Escape => { *control_flow = ControlFlow::Exit; }
-                    Q      => { *control_flow = ControlFlow::Exit; }
-                    _      => { }
+                    Escape => {
+                        *control_flow = ControlFlow::Exit;
+                    }
+                    Q => {
+                        *control_flow = ControlFlow::Exit;
+                    }
+                    _ => {}
                 }
             }
-            Event::DeviceEvent { event: DeviceEvent::MouseMotion { delta }, .. } => {
+            Event::DeviceEvent {
+                event: DeviceEvent::MouseMotion { delta },
+                ..
+            } => {
                 // Accumulate mouse movement
                 if let Ok(mut position) = arc_mouse_delta.lock() {
                     *position = (position.0 + delta.0 as f32, position.1 + delta.1 as f32);
                 }
             }
-            _ => { }
+            _ => {}
         }
     });
 }
