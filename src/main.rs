@@ -15,7 +15,9 @@ use std::{mem, os::raw::c_void, ptr};
 mod shader;
 mod util;
 
-use glm::rotation;
+mod mesh;
+use mesh::*;
+
 use glutin::event::{
     DeviceEvent,
     ElementState::{Pressed, Released},
@@ -60,7 +62,12 @@ fn offset<T>(n: u32) -> *const c_void {
 // ptr::null()
 
 // == // Generate your VAO here
-unsafe fn create_vao(vertices: &Vec<f32>, colors: &Vec<f32>, indices: &Vec<u32>) -> u32 {
+unsafe fn create_vao(
+    vertices: &Vec<f32>,
+    normals: &Vec<f32>,
+    colors: &Vec<f32>,
+    indices: &Vec<u32>,
+) -> u32 {
     let mut vao: u32 = 0;
     gl::GenVertexArrays(1, &mut vao);
     gl::BindVertexArray(vao);
@@ -70,7 +77,7 @@ unsafe fn create_vao(vertices: &Vec<f32>, colors: &Vec<f32>, indices: &Vec<u32>)
     gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
     gl::BufferData(
         gl::ARRAY_BUFFER,
-        byte_size_of_array(vertices) + byte_size_of_array(colors),
+        byte_size_of_array(vertices) + byte_size_of_array(normals) + byte_size_of_array(colors),
         ptr::null(),
         gl::STATIC_DRAW,
     );
@@ -84,6 +91,12 @@ unsafe fn create_vao(vertices: &Vec<f32>, colors: &Vec<f32>, indices: &Vec<u32>)
     gl::BufferSubData(
         gl::ARRAY_BUFFER,
         byte_size_of_array(vertices),
+        byte_size_of_array(normals),
+        pointer_to_array(normals),
+    );
+    gl::BufferSubData(
+        gl::ARRAY_BUFFER,
+        byte_size_of_array(vertices) + byte_size_of_array(normals),
         byte_size_of_array(colors),
         pointer_to_array(colors),
     );
@@ -97,15 +110,26 @@ unsafe fn create_vao(vertices: &Vec<f32>, colors: &Vec<f32>, indices: &Vec<u32>)
         ptr::null(),
     );
     gl::EnableVertexAttribArray(0);
+
     gl::VertexAttribPointer(
         1,
+        3,
+        gl::FLOAT,
+        gl::FALSE,
+        size_of::<f32>() * 3,
+        byte_size_of_array(vertices) as *const c_void,
+    );
+    gl::EnableVertexAttribArray(1);
+
+    gl::VertexAttribPointer(
+        2,
         4,
         gl::FLOAT,
         gl::FALSE,
         size_of::<f32>() * 4,
-        byte_size_of_array(vertices) as *const c_void,
+        (byte_size_of_array(vertices) + byte_size_of_array(normals)) as *const c_void,
     );
-    gl::EnableVertexAttribArray(1);
+    gl::EnableVertexAttribArray(2);
 
     let mut ibo: u32 = 0;
     gl::GenBuffers(1, &mut ibo);
@@ -171,7 +195,7 @@ fn main() {
         unsafe {
             gl::Enable(gl::DEPTH_TEST);
             gl::DepthFunc(gl::LESS);
-            gl::Enable(gl::CULL_FACE);
+            // gl::Enable(gl::CULL_FACE);
             gl::Disable(gl::MULTISAMPLE);
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
@@ -191,39 +215,18 @@ fn main() {
             );
         }
 
+        let terrain: Mesh = Terrain::load("resources/lunarsurface.obj");
+        let helicopter: Helicopter = Helicopter::load("resources/helicopter.obj");
+
         // == // Set up your VAO around here
-
-        const COLORS: &[f32] = &[
-            // t1
-            1.0, 0.0, 0.0, 1.0, // red
-            0.0, 1.0, 0.0, 1.0, // green
-            0.0, 0.0, 1.0, 1.0, // blue
-            // t2
-            1.0, 1.0, 0.0, 1.0, // cyan
-            0.0, 1.0, 1.0, 1.0, // yellow
-            1.0, 0.0, 1.0, 1.0, // purple
-            // t3
-            1.0, 0.5, 0.2, 1.0, // orange
-            1.0, 1.0, 1.0, 1.0, // white
-            0.0, 0.0, 0.0, 1.0, // black
-        ];
-        const VERTICES: &[f32] = &[
-            // t1
-            0.0, 0.5, 0.0, // top
-            -0.5, -0.5, 0.0, // left
-            0.5, -0.5, 0.0, // right
-            // t2
-            -0.75, 0.5, 0.0, // left
-            -0.5, 0.0, 0.0, //  bottom
-            -0.25, 0.5, 0.0, //  right
-            // t3
-            0.25, 0.5, 0.0, // left
-            0.5, 0.0, 0.0, //  bottom
-            0.75, 0.5, 0.0, //  right
-        ];
-        const INDICES: &[u32] = &[0, 1, 2, 3, 4, 5, 6, 7, 8];
-
-        let my_vao = unsafe { create_vao(&VERTICES.to_vec(), &COLORS.to_vec(), &INDICES.to_vec()) };
+        let my_vao = unsafe {
+            create_vao(
+                &terrain.vertices,
+                &terrain.normals,
+                &terrain.colors,
+                &terrain.indices,
+            )
+        };
 
         let mut camera_position: glm::Vec3 = glm::vec3(0.0, 0.0, 3.0);
 
@@ -354,12 +357,8 @@ fn main() {
                 let vrotation: glm::Mat4 = glm::rotation(-camera_pitch, &glm::vec3(1.0, 0.0, 0.0));
                 let rotation: glm::Mat4 = vrotation * hrotation;
 
-                let perspective: glm::Mat4 = glm::perspective(
-                    window_aspect_ratio,
-                    45.0_f32.to_radians(),
-                    1.0_f32,
-                    100_f32,
-                );
+                let perspective: glm::Mat4 =
+                    glm::perspective(window_aspect_ratio, 45.0_f32.to_radians(), 1.0_f32, 1000_f32);
                 let transform: glm::Mat4 = perspective * rotation * translation;
 
                 gl::UniformMatrix4fv(
@@ -377,7 +376,7 @@ fn main() {
                 gl::BindVertexArray(my_vao);
                 gl::DrawElements(
                     gl::TRIANGLES,
-                    INDICES.len() as i32,
+                    terrain.index_count,
                     gl::UNSIGNED_INT,
                     ptr::null(),
                 );

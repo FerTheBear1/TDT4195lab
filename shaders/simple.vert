@@ -1,6 +1,7 @@
 #version 430 core
 
 in vec3 a_position;
+in vec3 a_normal;
 in vec4 a_color;
 
 uniform mat4 u_transform;
@@ -10,9 +11,11 @@ const uint indices[6] = { 0, 2, 3, 0, 3, 1 };
 
 out vec2 f_local;
 out vec4 f_color;
+out vec3 f_normal;
 
 void main() {
     gl_Position = u_transform * vec4(a_position, 1.0f);
     f_local = corners[gl_VertexID];
     f_color = a_color;
+    f_normal = a_normal;
 }
