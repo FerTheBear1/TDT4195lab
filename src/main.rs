@@ -228,6 +228,33 @@ fn main() {
             )
         };
 
+        let helicopter_vao: &[u32; 4] = unsafe {
+            &[create_vao(
+                &helicopter.body.vertices, 
+                &helicopter.body.normals, 
+                &helicopter.body.colors, 
+                &helicopter.body.indices),
+
+            create_vao(
+                &helicopter.door.vertices, 
+                &helicopter.door.normals, 
+                &helicopter.door.colors, 
+                &helicopter.door.indices),
+
+            create_vao(
+                &helicopter.main_rotor.vertices, 
+                &helicopter.main_rotor.normals, 
+                &helicopter.main_rotor.colors, 
+                &helicopter.main_rotor.indices),
+
+            create_vao(
+                &helicopter.tail_rotor.vertices, 
+                &helicopter.tail_rotor.normals, 
+                &helicopter.tail_rotor.colors, 
+                &helicopter.tail_rotor.indices)
+            ]
+        };
+
         let mut camera_position: glm::Vec3 = glm::vec3(0.0, 0.0, 3.0);
 
         let mut camera_pitch = 0.0_f32;
@@ -380,6 +407,23 @@ fn main() {
                     gl::UNSIGNED_INT,
                     ptr::null(),
                 );
+                
+                let helicopter_index_counts: [i32; 4] = [
+                    helicopter.body.index_count,
+                    helicopter.door.index_count,
+                    helicopter.main_rotor.index_count,
+                    helicopter.tail_rotor.index_count
+
+                ];
+                for part_index in 0..4 {
+                gl::BindVertexArray(helicopter_vao[part_index]);
+                gl::DrawElements(
+                    gl::TRIANGLES,
+                    helicopter_index_counts[part_index],
+                    gl::UNSIGNED_INT,
+                    ptr::null(),
+                );
+            }
             }
 
             // Display the new color buffer on the display
