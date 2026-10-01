@@ -18,7 +18,7 @@ void main() {
 
     float diffuse = max(dot(-light_direction, normal), 0.0);
 
-    color.rgb = vec3(1.0) * diffuse;
+    color.rgb = f_color.rgb * diffuse;
     color.a = 1.0;
 
 
